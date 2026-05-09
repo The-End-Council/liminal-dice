@@ -133,7 +133,6 @@ function renderStaminaPlayers() {
 }
 
 // stamina recovery qty per player+item
-const _srQty = {};
 function changeSRQty(pidx, itemId, delta) {
   const key = `${pidx}_${itemId}`;
   const slot = G.bag.find(s=>s.id===itemId);
@@ -208,7 +207,6 @@ function beginGroupRoll() {
 // ================================================================
 // DICE UI
 // ================================================================
-let diceState = { rolling:false, diceMax:6 };
 
 function setDiceUI(opts) {
   diceState.diceMax = opts.diceMax || 6;

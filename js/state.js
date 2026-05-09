@@ -39,6 +39,8 @@ window.setupState = setupState;
 
 let logSeq = 0;
 
-
+// Turn flow shared state
+const _srQty = {};
+let diceState = { rolling:false, diceMax:6 };
 
 const SAVE_SLOTS = 3;
