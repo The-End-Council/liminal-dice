@@ -39,8 +39,6 @@ window.setupState = setupState;
 
 let logSeq = 0;
 
-const _srQty = {};
 
-let diceState = { rolling:false, diceMax:6 };
 
 const SAVE_SLOTS = 3;
