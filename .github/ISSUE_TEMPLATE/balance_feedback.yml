@@ -13,7 +13,7 @@ body:
     attributes:
       label: Balance Target
       description: What part needs tuning?
-      placeholder: Example: Hunter damage bonus, Level 0 zone penalty, item recovery value.
+      placeholder: "Example: Hunter damage bonus, Level 0 zone penalty, item recovery value."
     validations:
       required: true
 
@@ -30,7 +30,7 @@ body:
     attributes:
       label: Suggested Numbers
       description: Provide concrete values.
-      placeholder: Example: Change stamina loss from -10 to -8 in individual flee fail.
+      placeholder: "Example: Change stamina loss from -10 to -8 in individual flee fail."
     validations:
       required: true
 
