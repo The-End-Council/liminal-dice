@@ -4,12 +4,14 @@ function saveGame(slot) {
   if (!G.players || G.players.length === 0) { addLog('danger', 'ゲームが開始されていません。'); return; }
   const data = {
     players: G.players, bag: G.bag, bagMax: G.bagMax,
-    currentLevel: G.currentLevel, gameTime: G.gameTime,
+    currentLevel: G.currentLevel, currentZone: G.currentZone || 'normal', gameTime: G.gameTime,
+    mobileBattery: (typeof G.mobileBattery === 'number') ? G.mobileBattery : 3,
     daysPassed: G.daysPassed, turnCount: G.turnCount,
     trophies: G.trophies, investigatorRolls: G.investigatorRolls,
     savedAt: Date.now()
   };
   localStorage.setItem(getSaveKey(slot), JSON.stringify(data));
+  Audio.playSE('save');
   addLog('system', `💾 スロット${slot+1}にセーブした。`);
   buildSaveLoad();
   closeModal('saveload-modal');
@@ -23,7 +25,7 @@ function loadGame(slot) {
     // Inline confirm
     const btns = document.getElementById('saveload-content');
     // Use a simple flag approach
-    if (!window._loadConfirm) {
+    if (window._loadConfirm !== slot) {
       window._loadConfirm = slot;
       buildSaveLoad(); // will show confirm
       return;
@@ -31,16 +33,19 @@ function loadGame(slot) {
     delete window._loadConfirm;
     G = {
       players: data.players, bag: data.bag, bagMax: data.bagMax,
-      currentLevel: data.currentLevel, gameTime: data.gameTime,
+      currentLevel: data.currentLevel, currentZone: data.currentZone || 'normal', gameTime: data.gameTime,
+      mobileBattery: (typeof data.mobileBattery === 'number') ? data.mobileBattery : 3,
       daysPassed: data.daysPassed||0, turnCount: data.turnCount||0,
       trophies: data.trophies||{}, investigatorRolls: data.investigatorRolls||{},
       turnMode: null, currentPlayerIdx: 0, pendingLevelMove: null,
+      pendingPickupItem: null,
       entityState: null, selectedBagItem: null, discardQty:1, itemUseQty:1,
       shuffledActions:{}, pendingPassivePlayers:[], pendingStaminaCheck:null, staminaRecoveryQueue:[],
     };
     closeModal('saveload-modal');
     setScreen('game-screen');
     updateLevelUI(); updateStatusBar(); updateBagMini(); clearLog();
+    Audio.playSE('load');
     addLog('system', `📂 スロット${slot+1}からロードした。`);
     addLog('level', `現在地: ${GAME_DATA.levels[G.currentLevel].name}`);
     beginTurn();

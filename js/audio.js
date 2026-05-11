@@ -2,15 +2,19 @@
 // AUDIO ENGINE (Web Audio API — 仮BGM & SE)  v0.1.3
 // ================================================================
 const Audio = (() => {
-  let ctx = null, masterGain = null, bgmNode = null, bgmGain = null;
-  let muted = false, currentBgm = null, masterVol = 0.35;
+  let ctx = null, bgmBusGain = null, seBusGain = null, bgmNode = null, bgmGain = null;
+  let bgmMuted = false, seMuted = false, currentBgm = null, bgmVol = 0.35, seVol = 0.35;
+  let desiredBgm = 'home';
 
   function getCtx() {
     if (!ctx) {
       ctx = new (window.AudioContext || window.webkitAudioContext)();
-      masterGain = ctx.createGain();
-      masterGain.gain.value = masterVol;
-      masterGain.connect(ctx.destination);
+      bgmBusGain = ctx.createGain();
+      seBusGain = ctx.createGain();
+      bgmBusGain.gain.value = bgmMuted ? 0 : bgmVol;
+      seBusGain.gain.value = seMuted ? 0 : seVol;
+      bgmBusGain.connect(ctx.destination);
+      seBusGain.connect(ctx.destination);
     }
     if (ctx.state === 'suspended') ctx.resume();
     return ctx;
@@ -26,7 +30,7 @@ const Audio = (() => {
       if (detune) osc.detune.value = detune;
       g.gain.value = vol || 0.1;
       g.gain.exponentialRampToValueAtTime(0.001, c.currentTime + dur);
-      osc.connect(g); g.connect(masterGain);
+      osc.connect(g); g.connect(seBusGain);
       osc.start(); osc.stop(c.currentTime + dur);
     } catch(e) {}
   }
@@ -42,16 +46,18 @@ const Audio = (() => {
       const g = c.createGain();
       flt.type = 'bandpass'; flt.frequency.value = freq||600;
       src.buffer = buf; g.gain.value = vol||0.1;
-      src.connect(flt); flt.connect(g); g.connect(masterGain);
+      src.connect(flt); flt.connect(g); g.connect(seBusGain);
       src.start();
     } catch(e) {}
   }
 
   function playSE(name) {
-    if (muted) return;
+    if (seMuted) return;
     try { getCtx(); } catch(e){ return; }
     switch(name) {
+      case 'hover': makeClick(1100,0.02,0.05); break;
       case 'click': makeClick(600,0.04,0.1); break;
+      case 'confirm': makeNoise(740,0.06,'triangle',0.08); break;
       case 'dice':
         for(let i=0;i<6;i++) setTimeout(()=>makeClick(400+Math.random()*400,0.03,0.12),i*40);
         setTimeout(()=>{ makeNoise(120,0.15,'sine',0.2); makeNoise(60,0.08,'square',0.15); },260);
@@ -77,6 +83,12 @@ const Audio = (() => {
         break;
       case 'trophy':
         [523,659,784,1047].forEach((f,i)=>setTimeout(()=>makeNoise(f,0.25,'sine',0.13),i*100));
+        break;
+      case 'save':
+        [660,880].forEach((f,i)=>setTimeout(()=>makeNoise(f,0.12,'sine',0.1),i*90));
+        break;
+      case 'load':
+        [523,659,784].forEach((f,i)=>setTimeout(()=>makeNoise(f,0.1,'triangle',0.08),i*70));
         break;
       case 'gameover':
         [220,185,156,131].forEach((f,i)=>setTimeout(()=>makeNoise(f,0.5,'sawtooth',0.18),i*300));
@@ -107,15 +119,16 @@ const Audio = (() => {
   }
 
   function startBgm(name) {
+    desiredBgm = name || desiredBgm;
+    if (bgmMuted) { currentBgm = null; return; }
     if (currentBgm === name) return;
     stopBgm();
     currentBgm = name;
-    if (muted) return;
     try {
       const c = getCtx();
       bgmGain = c.createGain();
       bgmGain.gain.value = 0;
-      bgmGain.connect(masterGain);
+      bgmGain.connect(bgmBusGain);
       const nodes = [];
 
       if (name === 'home') {
@@ -152,23 +165,55 @@ const Audio = (() => {
     } catch(e) { console.warn('BGM error:',e); }
   }
 
-  function setVol(v) {
-    masterVol = Math.max(0,Math.min(1,parseFloat(v)||0));
-    if (masterGain) masterGain.gain.value = muted ? 0 : masterVol;
+  function setBgmVol(v) {
+    bgmVol = Math.max(0,Math.min(1,parseFloat(v)||0));
+    if (bgmBusGain) bgmBusGain.gain.value = bgmMuted ? 0 : bgmVol;
   }
-  function toggleMute() {
-    muted = !muted;
-    if (masterGain) masterGain.gain.value = muted ? 0 : masterVol;
-    if (muted) stopBgm(); else startBgm(currentBgm||'home');
-    return muted;
+
+  function setSeVol(v) {
+    seVol = Math.max(0,Math.min(1,parseFloat(v)||0));
+    if (seBusGain) seBusGain.gain.value = seMuted ? 0 : seVol;
   }
-  return { playSE, startBgm, stopBgm, setVol, toggleMute };
+
+  function toggleBgmMute() {
+    bgmMuted = !bgmMuted;
+    if (bgmBusGain) bgmBusGain.gain.value = bgmMuted ? 0 : bgmVol;
+    if (bgmMuted) stopBgm();
+    else startBgm(desiredBgm || currentBgm || 'home');
+    return bgmMuted;
+  }
+
+  function toggleSeMute() {
+    seMuted = !seMuted;
+    if (seBusGain) seBusGain.gain.value = seMuted ? 0 : seVol;
+    return seMuted;
+  }
+
+  return { playSE, startBgm, stopBgm, setBgmVol, setSeVol, toggleBgmMute, toggleSeMute };
 })();
 
 function playSE(name) { Audio.playSE(name); }
-function setMasterVol(v) { Audio.setVol(v); }
-function toggleMute() {
-  const m = Audio.toggleMute();
-  const btn = document.getElementById('mute-btn');
+function setBgmVol(v) { Audio.setBgmVol(v); }
+function setSeVol(v) { Audio.setSeVol(v); }
+
+function toggleBgmMute() {
+  const m = Audio.toggleBgmMute();
+  const btn = document.getElementById('bgm-mute-btn');
   if (btn) btn.textContent = m ? '🔇' : '🔊';
+}
+
+function toggleSeMute() {
+  const m = Audio.toggleSeMute();
+  const btn = document.getElementById('se-mute-btn');
+  if (btn) btn.textContent = m ? '🔕' : '🔔';
+}
+
+function setMasterVol(v) {
+  Audio.setBgmVol(v);
+  Audio.setSeVol(v);
+}
+
+function toggleMute() {
+  toggleBgmMute();
+  toggleSeMute();
 }

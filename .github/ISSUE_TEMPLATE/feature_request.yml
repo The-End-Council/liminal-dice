@@ -1,0 +1,69 @@
+name: Feature Request
+description: Suggest a new feature for Backrooms Roguelike Escape
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thank you for your idea.
+        Please write your request clearly.
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem
+      description: What problem do you want to solve?
+      placeholder: Example: Hard to compare items in bag quickly.
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed Solution
+      description: What feature do you want?
+      placeholder: Example: Add compact compare panel for selected item.
+    validations:
+      required: true
+
+  - type: dropdown
+    id: scope
+    attributes:
+      label: Feature Scope
+      description: Select the main area.
+      options:
+        - New Level
+        - New Item
+        - New Entity
+        - New Job Skill
+        - UI Improvement
+        - Audio Improvement
+        - System / Balance
+        - Other
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternative
+    attributes:
+      label: Alternative Idea
+      description: Any other idea you considered.
+    validations:
+      required: false
+
+  - type: textarea
+    id: impact
+    attributes:
+      label: Expected Impact
+      description: How this helps gameplay.
+      placeholder: Example: Faster decisions, less UI friction.
+    validations:
+      required: false
+
+  - type: textarea
+    id: additional
+    attributes:
+      label: Additional Context
+      description: Add examples, mockups, or references.
+    validations:
+      required: false

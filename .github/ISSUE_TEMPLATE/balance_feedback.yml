@@ -1,0 +1,51 @@
+name: Balance Feedback
+description: Suggest balance changes for dice, items, jobs, or entities
+labels: ["balance"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Share your balance feedback.
+        Please include clear numbers when possible.
+
+  - type: textarea
+    id: target
+    attributes:
+      label: Balance Target
+      description: What part needs tuning?
+      placeholder: Example: Hunter damage bonus, Level 0 zone penalty, item recovery value.
+    validations:
+      required: true
+
+  - type: textarea
+    id: current_state
+    attributes:
+      label: Current Behavior
+      description: What feels too strong or too weak?
+    validations:
+      required: true
+
+  - type: textarea
+    id: suggestion
+    attributes:
+      label: Suggested Numbers
+      description: Provide concrete values.
+      placeholder: Example: Change stamina loss from -10 to -8 in individual flee fail.
+    validations:
+      required: true
+
+  - type: textarea
+    id: reason
+    attributes:
+      label: Reason
+      description: Why this change improves game flow.
+    validations:
+      required: true
+
+  - type: textarea
+    id: test_case
+    attributes:
+      label: Test Case
+      description: How to test this suggestion in game.
+    validations:
+      required: false

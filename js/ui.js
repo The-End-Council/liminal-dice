@@ -1,3 +1,13 @@
+function scrollArchiveToBottom() {
+  const log = document.getElementById('game-log');
+  if (!log) return;
+  log.scrollTop = log.scrollHeight;
+  requestAnimationFrame(() => {
+    log.scrollTop = log.scrollHeight;
+    requestAnimationFrame(() => { log.scrollTop = log.scrollHeight; });
+  });
+}
+
 function addLog(type, msg) {
   const inner = document.getElementById('game-log-inner');
   if (!inner) return;
@@ -6,9 +16,7 @@ function addLog(type, msg) {
   el.className = `log-entry ${type}`;
   el.innerHTML = `<span class="log-time">T${String(logSeq).padStart(3,'0')}</span>${msg}`;
   inner.appendChild(el);
-  // Scroll container to bottom
-  const log = document.getElementById('game-log');
-  if (log) log.scrollTop = log.scrollHeight;
+  scrollArchiveToBottom();
 }
 function clearLog() {
   logSeq = 0;
@@ -16,13 +24,19 @@ function clearLog() {
   if (inner) inner.innerHTML = '';
 }
 
+function getDayIndexByGameTime(totalMins) {
+  const dayLength = 24 * 60;
+  const dayStartAt = 6 * 60;
+  return Math.floor((totalMins - dayStartAt) / dayLength);
+}
+
 // ================================================================
 // TIME SYSTEM
 // ================================================================
 function advanceTime() {
-  const prevDay = Math.floor(G.gameTime / (24*60));
+  const prevDay = getDayIndexByGameTime(G.gameTime);
   G.gameTime += 6 * 60;
-  const currDay = Math.floor(G.gameTime / (24*60));
+  const currDay = getDayIndexByGameTime(G.gameTime);
   if (currDay > prevDay) {
     const days = currDay - prevDay;
     G.daysPassed += days;
@@ -31,6 +45,14 @@ function advanceTime() {
         p.sanity = Math.max(0, p.sanity - 10 * days);
       }
     });
+    const hasMobile = G.bag.some(s => s.id === 'mobile');
+    if (hasMobile) {
+      const prevBattery = (typeof G.mobileBattery === 'number') ? G.mobileBattery : 3;
+      G.mobileBattery = Math.max(0, prevBattery - days);
+      if (G.mobileBattery !== prevBattery) {
+        addLog('info', `携帯のバッテリーが減った。残り ${G.mobileBattery}`);
+      }
+    }
     addLog('danger', `24時間が経過した。全員の精神力-${10*days}！`);
     updateStatusBar();
   }
@@ -40,19 +62,25 @@ function getTimeDisplay() {
   const totalMins = G.gameTime % (24 * 60);
   const h = Math.floor(totalMins / 60);
   const m = totalMins % 60;
+  if (h === 0 && m === 0) return '24:00';
   return `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}`;
 }
 
 function getTimePeriod() {
   const h = Math.floor((G.gameTime % (24*60)) / 60);
-  if (h >= 5 && h < 12)  return '朝';
+  if (h >= 6 && h < 12) return '朝';
   if (h >= 12 && h < 18) return '昼';
-  if (h >= 18 && h < 21) return '夕';
-  return '夜';
+  if (h >= 18 && h < 24) return '夜';
+  return '深夜';
 }
 
 function hasClock() {
-  return G.bag.some(s => { const it=GAME_DATA.items[s.id]; return it&&it.isClock; }) ||
+  return G.bag.some(s => {
+    const it = GAME_DATA.items[s.id];
+    if (!it || !it.isClock) return false;
+    if (it.id === 'mobile') return (G.mobileBattery || 0) > 0;
+    return true;
+  }) ||
          G.players.some(p => { const w=p.equip.weapon; if(!w) return false; const it=GAME_DATA.items[w]; return it&&it.isClock; });
 }
 
@@ -63,23 +91,27 @@ function updateStatusBar() {
   const bar = document.getElementById('status-bar');
   bar.innerHTML = '';
   const lv = GAME_DATA.levels[G.currentLevel];
-  if (lv && lv.isOutdoor) {
-    const knowTime = hasClock();
-    bar.innerHTML += `<div class="clock-widget">
-      <div class="clock-label">TIME</div>
+  const knowTime = (lv && lv.isOutdoor) ? true : hasClock();
+  bar.innerHTML += `<div class="clock-widget">
+    <div class="clock-label">TIME</div>
+    <div class="clock-main">
       <div class="clock-time">${knowTime ? getTimeDisplay() : '??:??'}</div>
       <div class="clock-period">${knowTime ? getTimePeriod() : '?'}</div>
-    </div>`;
-  }
+    </div>
+  </div>`;
   G.players.forEach((p, i) => {
     const isCurrent = (i === G.currentPlayerIdx) && G.turnMode === 'individual';
     const incap = isPlayerIncapacitated(p);
+    const job = GAME_DATA.jobs[p.job];
+    const jobImage = (job && job.image) ? `<img class="ps-job-icon" src="${job.image}" alt="${job.nameEn || job.name}">` : '';
+    const atkVal = (typeof calcPlayerAttack === 'function') ? calcPlayerAttack(p) : p.attack;
     const tags = [];
     if (p.hp <= 0) tags.push(`<span class="ps-tag hp0">HP0</span>`);
     else if (p.stamina <= 0) tags.push(`<span class="ps-tag st0">ST0</span>`);
     bar.innerHTML += `<div class="player-status-card ${isCurrent?'current-turn':''} ${incap?'incapacitated':''}">
       <div class="ps-name">${isCurrent?'<div class="ps-turn-dot"></div>':''}<span class="mono" style="font-size:10px">${p.name}</span></div>
-      <div class="ps-job" style="color:${GAME_DATA.jobs[p.job].color}">${GAME_DATA.jobs[p.job].name}</div>
+      <div class="ps-job-line">${jobImage}<span class="ps-job" style="color:${job.color}">${job.name}</span></div>
+      <div class="ps-job">ATK: ${atkVal}</div>
       ${tags.join('')}
       <div class="ps-bars">
         <div class="stat-bar-row"><div class="stat-label">HP</div><div class="stat-bar"><div class="stat-fill hp" style="width:${p.hp}%"></div></div><div class="stat-val">${p.hp}</div></div>
@@ -88,6 +120,7 @@ function updateStatusBar() {
       </div>
     </div>`;
   });
+  scrollArchiveToBottom();
 }
 
 function isPlayerIncapacitated(p) { return p.hp <= 0 || p.stamina <= 0; }

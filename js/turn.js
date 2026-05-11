@@ -1,8 +1,30 @@
-function getShuffledActions(levelId) {
-  const key = `${levelId}_${G.turnCount}`;
-  if (G.shuffledActions[key]) return G.shuffledActions[key];
+function getLevelActionContext(levelId) {
   const lv = GAME_DATA.levels[levelId];
-  const arr = [...lv.actions];
+  if (!lv.zones) {
+    return {
+      zoneId: null,
+      zoneName: null,
+      diceMax: lv.diceMax,
+      actions: lv.actions
+    };
+  }
+
+  if (!G.currentZone || !lv.zones[G.currentZone]) G.currentZone = 'normal';
+  const zone = lv.zones[G.currentZone] || lv.zones.normal;
+  return {
+    zoneId: G.currentZone,
+    zoneName: zone.name || G.currentZone,
+    diceMax: zone.diceMax || lv.diceMax,
+    actions: zone.actions || lv.actions
+  };
+}
+
+function getShuffledActions(levelId) {
+  const ctx = getLevelActionContext(levelId);
+  const zoneKey = ctx.zoneId || 'base';
+  const key = `${levelId}_${zoneKey}_${G.turnCount}`;
+  if (G.shuffledActions[key]) return G.shuffledActions[key];
+  const arr = [...ctx.actions];
   for (let i=arr.length-1; i>0; i--) {
     const j = Math.floor(Math.random()*(i+1));
     [arr[i],arr[j]] = [arr[j],arr[i]];
@@ -20,17 +42,18 @@ function beginTurn() {
   G.currentPlayerIdx = 0;
   G.pendingPassivePlayers = [];
 
+  const staminaOut = G.players.filter(p => p.stamina <= 0 && p.hp > 0);
+  if (staminaOut.length > 0) {
+    promptStaminaRecovery(staminaOut, () => {
+      if (G.players.filter(isPlayerActionable).length === 0) { gameOver('全員が行動不能となった'); return; }
+      continueTurnStart();
+    });
+    return;
+  }
+
   const actionable = G.players.filter(isPlayerActionable);
   if (actionable.length === 0) {
-    const staminaOut = G.players.filter(p => p.stamina <= 0 && p.hp > 0);
-    if (staminaOut.length > 0) {
-      promptStaminaRecovery(staminaOut, () => {
-        if (G.players.filter(isPlayerActionable).length === 0) { gameOver('全員が行動不能となった'); return; }
-        continueTurnStart();
-      });
-    } else {
-      gameOver('全員が倒れた');
-    }
+    gameOver('全員が倒れた');
     return;
   }
   continueTurnStart();
@@ -74,16 +97,8 @@ function applyStaminaCost(mode) {
 }
 
 function checkStaminaAfterCost(callback) {
-  const staminaOut = G.players.filter(p => p.stamina === 0 && p.hp > 0);
-  const actionable = G.players.filter(isPlayerActionable);
-  if (staminaOut.length > 0 && actionable.length === 0) {
-    promptStaminaRecovery(staminaOut, () => {
-      if (G.players.filter(isPlayerActionable).length === 0) { gameOver('全員のスタミナが尽きた'); return; }
-      callback();
-    });
-  } else {
-    callback();
-  }
+  // スタミナ不足通知はターン開始時のみ実施する
+  callback();
 }
 
 // ================================================================
@@ -113,12 +128,16 @@ function renderStaminaPlayers() {
     } else {
       stItems.forEach(slot => {
         const it = GAME_DATA.items[slot.id];
+        const recoverMult = (typeof getItemRecoveryMultiplier === 'function') ? getItemRecoveryMultiplier() : 1.0;
+        const staminaPerUse = it.effects && it.effects.stamina ? Math.round(it.effects.stamina * recoverMult) : 0;
         const qtyId = `srq-${pidx}-${slot.id}`;
+        const qtyKey = `${pidx}_${slot.id}`;
+        const initialQty = _srQty[qtyKey] || 1;
         itemBtns += `<div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-bottom:6px;">
-          <span style="font-size:12px">${it.icon} ${it.name} (×${slot.qty}) +${it.effects.stamina}ST</span>
+          <span style="font-size:12px">${it.icon} ${it.name} (×${slot.qty}) +${staminaPerUse}ST</span>
           <div class="stamina-qty-row">
             <button class="stamina-qty-btn" onclick="changeSRQty('${pidx}','${slot.id}',-1)">-</button>
-            <div class="stamina-qty-val" id="${qtyId}">1</div>
+            <div class="stamina-qty-val" id="${qtyId}">${initialQty}</div>
             <button class="stamina-qty-btn" onclick="changeSRQty('${pidx}','${slot.id}',1)">+</button>
           </div>
           <button class="stamina-use-btn" onclick="useStaminaItem(${pidx},'${slot.id}')">使用</button>
@@ -150,10 +169,13 @@ function useStaminaItem(pidx, itemId) {
   const it = GAME_DATA.items[itemId];
   const p = G.players[pidx];
   if (!p) return;
+  const recoverMult = (typeof getItemRecoveryMultiplier === 'function') ? getItemRecoveryMultiplier() : 1.0;
+  const hpPerUse = it.effects && it.effects.hp ? Math.round(it.effects.hp * recoverMult) : 0;
+  const staminaPerUse = it.effects && it.effects.stamina ? Math.round(it.effects.stamina * recoverMult) : 0;
   const prev = p.stamina;
   for (let q=0; q<qty; q++) {
-    if (it.effects.stamina) p.stamina = Math.min(p.maxStamina, p.stamina + it.effects.stamina);
-    if (it.effects.hp)     p.hp     = Math.min(p.maxHp, p.hp + it.effects.hp);
+    if (staminaPerUse > 0) p.stamina = Math.min(p.maxStamina, p.stamina + staminaPerUse);
+    if (hpPerUse > 0)      p.hp      = Math.min(p.maxHp, p.hp + hpPerUse);
     if (it.effects.sanity) p.sanity = Math.min(p.maxSanity, p.sanity + it.effects.sanity);
   }
   removeFromBag(itemId, qty);
@@ -185,8 +207,13 @@ function beginNextPlayerRoll() {
   G.currentPlayerIdx = idx;
   updateStatusBar();
   const p = G.players[idx];
-  const lv = GAME_DATA.levels[G.currentLevel];
-  setDiceUI({ prompt:`${p.name} のターン — ダイスを振れ (1-${lv.diceMax})`, diceMax:lv.diceMax, label:`D${lv.diceMax}` });
+  const ctx = getLevelActionContext(G.currentLevel);
+  const zoneSuffix = ctx.zoneName ? ` [${ctx.zoneName}]` : '';
+  setDiceUI({
+    prompt:`${p.name} のターン${zoneSuffix} — ダイスを振れ (1-${ctx.diceMax})`,
+    diceMax:ctx.diceMax,
+    label:`D${ctx.diceMax}`
+  });
 }
 
 function onAllIndividualRollsDone() {
@@ -200,8 +227,13 @@ function onAllIndividualRollsDone() {
 // GROUP ROLL FLOW
 // ================================================================
 function beginGroupRoll() {
-  const lv = GAME_DATA.levels[G.currentLevel];
-  setDiceUI({ prompt:`団体行動 — ダイスを振れ (1-${lv.diceMax})`, diceMax:lv.diceMax, label:`D${lv.diceMax}` });
+  const ctx = getLevelActionContext(G.currentLevel);
+  const zoneSuffix = ctx.zoneName ? ` [${ctx.zoneName}]` : '';
+  setDiceUI({
+    prompt:`団体行動${zoneSuffix} — ダイスを振れ (1-${ctx.diceMax})`,
+    diceMax:ctx.diceMax,
+    label:`D${ctx.diceMax}`
+  });
 }
 
 // ================================================================
@@ -239,45 +271,71 @@ function doRoll() {
   }, 55);
 }
 
+function getInvestigatorRollContext() {
+  const lv = GAME_DATA.levels[G.currentLevel];
+  const zoneKey = (lv && lv.zones) ? (G.currentZone || 'normal') : 'base';
+
+  if (G.turnMode === 'group') {
+    const investigatorIdxs = G.players
+      .map((p, idx) => ({ p, idx }))
+      .filter(x => x.p.job === 'investigator')
+      .map(x => x.idx);
+    if (investigatorIdxs.length === 0) return { canInspect: false, readKeys: [], writeKeys: [] };
+    const keys = investigatorIdxs.map(idx => `${idx}@${zoneKey}`);
+    // 旧データ互換: 以前の団体キーも判定には含める
+    const legacyGroupKey = `group@${zoneKey}`;
+    return { canInspect: true, readKeys: [...keys, legacyGroupKey], writeKeys: keys };
+  }
+  const currentPlayer = G.players[G.currentPlayerIdx];
+  if (currentPlayer && currentPlayer.job === 'investigator') {
+    const key = `${G.currentPlayerIdx}@${zoneKey}`;
+    return { canInspect: true, readKeys: [key], writeKeys: [key] };
+  }
+  return { canInspect: false, readKeys: [], writeKeys: [] };
+}
+
 function handleRollResult(roll) {
   const action = getActionForRoll(G.currentLevel, roll);
   if (!action) return;
 
-  const currentPlayer = G.players[G.currentPlayerIdx];
-  const isInvestigator = currentPlayer && currentPlayer.job === 'investigator';
+  const inv = getInvestigatorRollContext();
+  const canInspect = inv.canInspect;
   const hasNote = G.bag.find(s => s.id === 'investigationNote');
 
-  // Check if THIS investigator player has already rolled this number this level
+  // Check roll history key (個別/団体で共通の調査員履歴を参照)
   let alreadyUsed = false;
-  if (isInvestigator) {
-    const pKey = String(G.currentPlayerIdx);
-    const myRolls = G.investigatorRolls[pKey] || [];
-    alreadyUsed = myRolls.includes(roll);
+  if (canInspect) {
+    alreadyUsed = inv.readKeys.some(key => {
+      const myRolls = G.investigatorRolls[key] || [];
+      return myRolls.includes(roll);
+    });
   }
 
-  if (isInvestigator && hasNote && alreadyUsed) {
+  if (canInspect && hasNote && alreadyUsed) {
+    const hiddenInfo = action.hidden ? ` <span class="text-muted" style="font-size:11px">[${action.hidden}]</span>` : '';
     document.getElementById('dice-result').innerHTML =
-      `<span class="text-yellow">目 ${roll}: ${action.label}</span> <span class="text-muted">[調査ノート: 過去に出た目 — 振り直し可能]</span>`;
+      `<span class="text-yellow">目 ${roll}: ${action.label}</span>${hiddenInfo} <span class="text-muted">[調査ノート: 過去に出た目 — 振り直し可能]</span>`;
     document.getElementById('dice-buttons').innerHTML = `
       <button class="roll-btn" onclick="doRoll()">振り直す</button>
       <button class="confirm-btn" onclick="confirmAction(${roll})">そのまま実行</button>`;
     return;
   }
 
-  // Record roll for this investigator player
-  if (isInvestigator) {
-    const pKey = String(G.currentPlayerIdx);
-    if (!G.investigatorRolls[pKey]) G.investigatorRolls[pKey] = [];
-    if (!G.investigatorRolls[pKey].includes(roll)) G.investigatorRolls[pKey].push(roll);
+  // Record roll history for investigator ability scope
+  if (canInspect) {
+    inv.writeKeys.forEach(key => {
+      if (!G.investigatorRolls[key]) G.investigatorRolls[key] = [];
+      if (!G.investigatorRolls[key].includes(roll)) G.investigatorRolls[key].push(roll);
+    });
   }
 
   let labelHtml = `目 <span class="text-yellow">${roll}</span>: ${action.label}`;
-  if (isInvestigator) labelHtml += ` <span class="text-muted" style="font-size:11px">[${action.hidden}]</span>`;
+  if (canInspect && action.hidden) labelHtml += ` <span class="text-muted" style="font-size:11px">[${action.hidden}]</span>`;
   document.getElementById('dice-result').innerHTML = labelHtml;
 
-  if (action.event === 'levelMove') {
+  if (action.event === 'levelMove' || action.event === 'zoneMove') {
     let btns = `<button class="roll-btn" onclick="confirmAction(${roll})">確定</button>`;
-    if (isInvestigator) btns += `<button class="confirm-btn" onclick="cancelLevelMove()">移動キャンセル</button>`;
+    if (canInspect) btns += `<button class="confirm-btn" onclick="cancelLevelMove()">移動キャンセル</button>`;
     document.getElementById('dice-buttons').innerHTML = btns;
   } else {
     document.getElementById('dice-buttons').innerHTML = `<button class="roll-btn" onclick="confirmAction(${roll})">確定</button>`;
@@ -285,14 +343,71 @@ function handleRollResult(roll) {
 }
 
 function cancelLevelMove() {
-  addLog('system', '階層調査員の能力でLevel移動をキャンセルした。');
+  addLog('system', '階層調査員の能力で移動イベントをキャンセルした。');
   document.getElementById('dice-result').textContent = '';
   document.getElementById('dice-buttons').innerHTML = `<button class="roll-btn" onclick="doRoll()">ダイスを振り直す</button>`;
 }
 
 function confirmAction(roll) {
+  Audio.playSE('confirm');
   const action = getActionForRoll(G.currentLevel, roll);
   processAction(action);
+}
+
+function getActionTargets() {
+  if (G.turnMode === 'group') return G.players.filter(isPlayerActionable);
+  const p = G.players[G.currentPlayerIdx];
+  return (p && isPlayerActionable(p)) ? [p] : [];
+}
+
+function applyActionEffects(action) {
+  if (!action.effects) return;
+  const targets = getActionTargets();
+  targets.forEach(p => {
+    const changes = [];
+
+    const hpDelta = action.effects.hp || 0;
+    if (hpDelta !== 0) {
+      const before = p.hp;
+      p.hp = Math.max(0, Math.min(p.maxHp, p.hp + hpDelta));
+      const actual = p.hp - before;
+      if (actual !== 0) changes.push(`体力${actual > 0 ? '+' : ''}${actual}`);
+    }
+
+    const staminaDelta = action.effects.stamina || 0;
+    if (staminaDelta !== 0) {
+      const before = p.stamina;
+      p.stamina = Math.max(0, Math.min(p.maxStamina, p.stamina + staminaDelta));
+      const actual = p.stamina - before;
+      if (actual !== 0) changes.push(`スタミナ${actual > 0 ? '+' : ''}${actual}`);
+    }
+
+    const sanityDelta = action.effects.sanity || 0;
+    if (sanityDelta !== 0) {
+      const before = p.sanity;
+      p.sanity = Math.max(0, Math.min(p.maxSanity, p.sanity + sanityDelta));
+      const actual = p.sanity - before;
+      if (actual !== 0) changes.push(`精神力${actual > 0 ? '+' : ''}${actual}`);
+    }
+
+    if (changes.length > 0) {
+      const hasMinus = changes.some(t => t.includes('-'));
+      addLog(hasMinus ? 'danger' : 'item', `${p.name}：${changes.join(' / ')}`);
+    }
+  });
+  updateStatusBar();
+}
+
+function moveToZone(nextZone, msg) {
+  const lv = GAME_DATA.levels[G.currentLevel];
+  if (!lv || !lv.zones || !lv.zones[nextZone]) return;
+  G.currentZone = nextZone;
+  G.shuffledActions = {};
+  if (msg) {
+    addLog('level', `▼ ${msg}`);
+  } else {
+    addLog('level', `▼ ${lv.zones[nextZone].name}へ移動した。`);
+  }
 }
 
 // ================================================================
@@ -305,14 +420,17 @@ function processAction(action) {
 
   switch (action.event) {
     case 'explore':
-      addLog('explore', '探索した... 何も見つからなかった。');
+      addLog('explore', action.log || '探索した... 何も見つからなかった。');
       afterIndividualAction();
       break;
     case 'item': {
       const it = GAME_DATA.items[action.reward];
-      addToBag(action.reward);
-      Audio.playSE('item');
-      addLog('item', `🎁 「${it.name}」を発見した！`);
+      if (action.log) addLog('explore', action.log);
+      const picked = addToBag(action.reward);
+      if (picked) {
+        Audio.playSE('item');
+        addLog('item', `🎁 「${it.name}」を発見した！`);
+      }
       updateBagMini();
       afterIndividualAction();
       break;
@@ -343,6 +461,22 @@ function processAction(action) {
       }
       break;
     }
+    case 'effect': {
+      if (action.log) addLog('info', action.log);
+      applyActionEffects(action);
+      if (action.nextZone) moveToZone(action.nextZone);
+      afterIndividualAction();
+      break;
+    }
+    case 'zoneMove': {
+      moveToZone(action.nextZone, action.log);
+      afterIndividualAction();
+      break;
+    }
+    default:
+      addLog('explore', '何も起きなかった。');
+      afterIndividualAction();
+      break;
   }
 }
 
@@ -355,13 +489,17 @@ function afterIndividualAction() {
       const job = GAME_DATA.jobs[p.job];
       if (job.passive) {
         const r = job.passive(G, p);
-        if (r && r.type === 'ADD_ITEM') { addToBag(r.item); addLog('item', `✨ ${r.msg}`); updateBagMini(); }
+        if (r && r.type === 'ADD_ITEM') {
+          const added = addToBag(r.item);
+          if (added) addLog('item', `✨ ${r.msg}`);
+          updateBagMini();
+        }
       }
     }
     G.currentPlayerIdx++;
     beginNextPlayerRoll();
   } else {
-    triggerGroupPassives(() => { advanceTime(); endTurn(); });
+    triggerGroupPassives(() => { endTurn(); });
   }
 }
 
@@ -374,7 +512,11 @@ function triggerGroupPassives(cb) {
     const job = GAME_DATA.jobs[p.job];
     if (job.passive) {
       const r = job.passive(G, p);
-      if (r && r.type === 'ADD_ITEM') { addToBag(r.item); addLog('item', `✨ ${r.msg}`); updateBagMini(); }
+      if (r && r.type === 'ADD_ITEM') {
+        const added = addToBag(r.item);
+        if (added) addLog('item', `✨ ${r.msg}`);
+        updateBagMini();
+      }
     }
   });
   cb();
@@ -388,7 +530,11 @@ function processNextPassive(cb) {
     const job = GAME_DATA.jobs[p.job];
     if (job.passive) {
       const r = job.passive(G, p);
-      if (r && r.type === 'ADD_ITEM') { addToBag(r.item); addLog('item', `✨ ${r.msg}`); updateBagMini(); }
+      if (r && r.type === 'ADD_ITEM') {
+        const added = addToBag(r.item);
+        if (added) addLog('item', `✨ ${r.msg}`);
+        updateBagMini();
+      }
     }
   }
   processNextPassive(cb);
@@ -402,6 +548,7 @@ function finalizeLevelMove() {
   G.pendingLevelMove = null;
   clearLog();
   G.currentLevel = nl;
+  G.currentZone = 'normal';
   G.shuffledActions = {};
   // Reset investigator rolls on level change
   G.investigatorRolls = {};
@@ -411,7 +558,6 @@ function finalizeLevelMove() {
   if (nl === 1) unlockTrophy('descend');
   addLog('level', `== ${GAME_DATA.levels[nl].name} "${GAME_DATA.levels[nl].subtitle}" に到着した ==`);
   addLog('info', GAME_DATA.levels[nl].desc);
-  advanceTime();
   endTurn();
 }
 
