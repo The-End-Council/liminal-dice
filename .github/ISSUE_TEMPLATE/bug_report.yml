@@ -1,0 +1,95 @@
+name: Bug Report
+description: Report a bug in Backrooms Roguelike Escape
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thank you for the bug report.
+        Please fill in the details below.
+
+  - type: textarea
+    id: summary
+    attributes:
+      label: Bug Summary
+      description: What is wrong?
+      placeholder: Example: Archive does not auto-scroll after combat end.
+    validations:
+      required: true
+
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      description: Where does this bug happen?
+      options:
+        - Setup Screen
+        - Turn / Dice
+        - Inventory / Item
+        - Combat
+        - Audio
+        - Save / Load
+        - UI / Archive
+        - Other
+    validations:
+      required: true
+
+  - type: dropdown
+    id: level
+    attributes:
+      label: Level / Zone
+      description: Select where the bug happened.
+      options:
+        - Level 0 (The Lobby)
+        - Level 0 / Blackout Zone
+        - Level 0 / Red Rooms
+        - Level 1 (Habitable Zone)
+        - Unknown
+    validations:
+      required: true
+
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to Reproduce
+      description: Write exact steps.
+      placeholder: |
+        1. Start game with 2 players
+        2. Open bag
+        3. Use item...
+        4. Error happens
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected Result
+      description: What should happen?
+    validations:
+      required: true
+
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual Result
+      description: What happened instead?
+    validations:
+      required: true
+
+  - type: textarea
+    id: save_data
+    attributes:
+      label: Save / State Info
+      description: If related, write save slot, player jobs, turn mode, and turn count.
+      placeholder: Slot1, Individual mode, Turn 12, P1 Hunter...
+    validations:
+      required: false
+
+  - type: textarea
+    id: additional
+    attributes:
+      label: Additional Context
+      description: Add screenshots, logs, or extra notes.
+    validations:
+      required: false

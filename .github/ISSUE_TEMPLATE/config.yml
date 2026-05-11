@@ -1,0 +1,17 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Questions and Discussion
+    url: https://github.com/habitat-hub/board-game-prototype/discussions
+    about: For general questions, ideas, and chat, please use Discussions.
+
+# Issue creation defaults
+defaults:
+  - template: "bug_report.yml"
+    name: "Bug Report"
+    about: "Report a bug in game behavior"
+  - template: "feature_request.yml"
+    name: "Feature Request"
+    about: "Suggest a new feature"
+  - template: "balance_feedback.yml"
+    name: "Balance Feedback"
+    about: "Suggest game balance changes"

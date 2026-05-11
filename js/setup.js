@@ -1,3 +1,8 @@
+function renderJobImage(job, cls = 'job-art') {
+  if (job && job.image) return `<img src="${job.image}" alt="${job.nameEn}" class="${cls}">`;
+  return '';
+}
+
 function buildJobGrid() {
   const grid = document.getElementById('job-grid');
   if (!grid) return;
@@ -5,7 +10,7 @@ function buildJobGrid() {
   Object.values(GAME_DATA.jobs).forEach(job => {
     const names = (job.startItems||[]).reduce((a,id)=>{ const it=GAME_DATA.items[id]; if(it){a[it.name]=(a[it.name]||0)+1;} return a; },{});
     const tags = Object.entries(names).map(([n,q])=>`<span class="job-item-tag">${q>1?n+'×'+q:n}</span>`).join('');
-    grid.innerHTML += `<div class="job-card" style="--job-color:${job.color}"><div class="job-name" style="color:${job.color}">${job.name}</div><div class="job-name-en">${job.nameEn}</div><div class="job-passive">${job.desc}</div><div class="job-items">${tags}</div></div>`;
+    grid.innerHTML += `<div class="job-card" style="--job-color:${job.color}">${renderJobImage(job)}<div class="job-name" style="color:${job.color}">${job.name}</div><div class="job-name-en">${job.nameEn}</div><div class="job-passive">${job.desc}</div><div class="job-items">${tags}</div></div>`;
   });
 }
 
@@ -22,7 +27,7 @@ function buildPlayerAssignRows(count) {
   for (let i=0; i<count; i++) {
     const p = setupState.players[i];
     const btns = Object.values(GAME_DATA.jobs).map(j =>
-      `<button class="job-pick-btn ${p.job===j.id?'selected':''}" onclick="pickJob(${i},'${j.id}')">${j.name}</button>`
+      `<button class="job-pick-btn ${p.job===j.id?'selected':''}" onclick="pickJob(${i},'${j.id}')">${renderJobImage(j, 'job-pick-art')}<span>${j.name}</span></button>`
     ).join('');
     grid.innerHTML += `<div class="player-assign-row"><div class="player-number">${i+1}</div><input class="player-name-input" value="${p.name}" oninput="setupState.players[${i}].name=this.value||'Player ${i+1}'" placeholder="名前"><div class="player-job-select">${btns}</div></div>`;
   }
@@ -38,7 +43,10 @@ function startGame() {
     players: [],
     bag: [],
     bagMax: 12,
+    pendingPickupItem: null,
+    mobileBattery: 3,
     currentLevel: 0,
+    currentZone: 'normal',
     turnMode: null,
     currentPlayerIdx: 0,
     pendingLevelMove: null,

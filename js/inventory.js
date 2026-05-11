@@ -1,8 +1,54 @@
-function addToBag(itemId) {
+function renderItemImage(it, cls = 'item-icon-img') {
+  if (it && it.image) return `<img src="${it.image}" alt="${it.name}" class="${cls}">`;
+  return `<span class="item-icon-fallback">${it && it.icon ? it.icon : '?'}</span>`;
+}
+
+function addToBag(itemId, opts = {}) {
+  const allowReplacePrompt = opts.allowReplacePrompt !== false;
   const ex = G.bag.find(s => s.id === itemId);
-  if (ex) { ex.qty++; return; }
-  if (G.bag.length >= G.bagMax) { addLog('danger', 'バッグがいっぱい！アイテムを取得できなかった。'); return; }
+  if (ex) { ex.qty++; return true; }
+  if (G.bag.length >= G.bagMax) {
+    if (!allowReplacePrompt) {
+      addLog('danger', 'バッグがいっぱい！アイテムを取得できなかった。');
+      return false;
+    }
+    showBagFullPickupPrompt(itemId);
+    return false;
+  }
   G.bag.push({ id: itemId, qty: 1 });
+  return true;
+}
+
+function showBagFullPickupPrompt(itemId) {
+  const it = GAME_DATA.items[itemId];
+  if (!it) return;
+  G.pendingPickupItem = itemId;
+  const msg = document.getElementById('bagfull-confirm-text');
+  if (msg) {
+    msg.textContent = `バッグがいっぱいです。「${it.name}」を取得するため、バッグ内のアイテムを捨てますか？`;
+  }
+  showModal('bagfull-modal');
+}
+
+function confirmBagFullPickup() {
+  const pending = G.pendingPickupItem;
+  closeModal('bagfull-modal');
+  if (!pending) return;
+  const it = GAME_DATA.items[pending];
+  if (it) {
+    addLog('system', `バッグが満杯。不要なアイテムを捨てると「${it.name}」を取得できる。`);
+  }
+  openBag();
+}
+
+function cancelBagFullPickup() {
+  const pending = G.pendingPickupItem;
+  closeModal('bagfull-modal');
+  if (pending) {
+    const it = GAME_DATA.items[pending];
+    if (it) addLog('danger', `「${it.name}」の取得を見送った。`);
+  }
+  G.pendingPickupItem = null;
 }
 
 function removeFromBag(itemId, qty=1) {
@@ -22,13 +68,25 @@ function updateBagMini() {
   slots.slice(0,12).forEach(s => {
     if (s) {
       const it = GAME_DATA.items[s.id];
-      mini.innerHTML += `<div class="bag-slot" title="${it.name}" onclick="openBag()">${it.icon}<span class="item-qty">${s.qty>1?s.qty:''}</span></div>`;
+      const tip = (it.id === 'mobile')
+        ? `${it.name} (残バッテリー:${typeof G.mobileBattery === 'number' ? G.mobileBattery : 3})`
+        : it.name;
+      mini.innerHTML += `<div class="bag-slot" title="${tip}" onclick="openBag()">${renderItemImage(it, 'item-icon-mini')}<span class="item-qty">${s.qty>1?s.qty:''}</span></div>`;
     } else {
       mini.innerHTML += `<div class="bag-slot empty">·</div>`;
     }
   });
   if (countEl) countEl.textContent = `${G.bag.length}/${G.bagMax}`;
 }
+
+function hasPartyMedic() {
+  return G.players.some(p => p.job === 'medic');
+}
+
+function getItemRecoveryMultiplier() {
+  return hasPartyMedic() ? 1.1 : 1.0;
+}
+
 function openBag() {
   G.selectedBagItem = null;
   G.itemUseQty = 1;
@@ -42,7 +100,7 @@ function openBag() {
     G.bag.forEach((slot, idx) => {
       const it = GAME_DATA.items[slot.id];
       grid.innerHTML += `<div class="bag-item-card" id="bag-card-${idx}" onclick="selectBagItem(${idx})">
-        <div class="item-icon">${it.icon}</div>
+        <div class="item-icon">${renderItemImage(it, 'item-icon-grid')}</div>
         <div class="item-name">${it.name}</div>
         <div class="item-qty">×${slot.qty}</div>
       </div>`;
@@ -62,8 +120,13 @@ function selectBagItem(idx) {
   if (!slot) return;
   const it = GAME_DATA.items[slot.id];
   document.getElementById('item-detail').classList.add('visible');
-  document.getElementById('item-detail-name').textContent = `${it.icon} ${it.name}`;
-  document.getElementById('item-detail-desc').textContent = it.desc;
+  document.getElementById('item-detail-name').innerHTML = `${renderItemImage(it, 'item-icon-detail')}<span>${it.name}</span>`;
+  if (it.id === 'mobile') {
+    const b = (typeof G.mobileBattery === 'number') ? G.mobileBattery : 3;
+    document.getElementById('item-detail-desc').textContent = `${it.desc}（残バッテリー:${b}）`;
+  } else {
+    document.getElementById('item-detail-desc').textContent = it.desc;
+  }
 
   // Hide discard confirm
   document.getElementById('discard-confirm').classList.remove('visible');
@@ -99,11 +162,21 @@ function selectBagItem(idx) {
   if (it.id === 'investigationNote') {
     const investigators = G.players.filter(p => p.job === 'investigator');
     if (investigators.length > 0) {
-      let lines = investigators.map(p => {
+      const lv = GAME_DATA.levels[G.currentLevel];
+      const zoneIds = (lv && lv.zones) ? Object.keys(lv.zones) : ['base'];
+      const zoneLabel = (zid) => {
+        if (zid === 'base') return '通常';
+        return (lv && lv.zones && lv.zones[zid] && lv.zones[zid].name) ? lv.zones[zid].name : zid;
+      };
+      let lines = '';
+      investigators.forEach(p => {
         const pidx = G.players.indexOf(p);
-        const rolls = (G.investigatorRolls[String(pidx)] || []).sort((a,b)=>a-b);
-        return `<div style="margin-bottom:4px"><span style="color:var(--yellow)">${p.name}</span>: 出した目 [${rolls.length > 0 ? rolls.join(', ') : 'なし'}]</div>`;
-      }).join('');
+        zoneIds.forEach(zid => {
+          const key = `${pidx}@${zid}`;
+          const rolls = (G.investigatorRolls[key] || []).slice().sort((a,b)=>a-b);
+          lines += `<div style="margin-bottom:4px"><span style="color:var(--yellow)">${p.name} / ${zoneLabel(zid)}</span>: 出した目 [${rolls.length > 0 ? rolls.join(', ') : 'なし'}]</div>`;
+        });
+      });
       noteInfo.innerHTML = `<div style="margin-bottom:6px;color:var(--dim);font-size:10px;letter-spacing:0.15em">現在のLevelで出した目 (再振り可能)</div>${lines}`;
       noteInfo.style.display = 'block';
     } else {
@@ -125,11 +198,13 @@ function updateItemEffectPreview() {
   const targetIdx = parseInt(sel.value || '0');
   const p = G.players[targetIdx];
   if (!p || !it.effects) { document.getElementById('item-effect-preview').textContent = ''; return; }
-  const mult = p.job === 'medic' ? 1.1 : 1.0;
+  const mult = getItemRecoveryMultiplier();
   const lines = [];
-  if (it.effects.hp)     lines.push(`HP: ${p.hp} → ${Math.min(p.maxHp, p.hp + Math.round(it.effects.hp*mult*qty))}`);
-  if (it.effects.stamina) lines.push(`ST: ${p.stamina} → ${Math.min(p.maxStamina, p.stamina + Math.round(it.effects.stamina*mult*qty))}`);
-  if (it.effects.sanity)  lines.push(`SN: ${p.sanity} → ${Math.min(p.maxSanity, p.sanity + Math.round(it.effects.sanity*mult*qty))}`);
+  const hpPerUse = it.effects.hp ? Math.round(it.effects.hp * mult) : 0;
+  const stPerUse = it.effects.stamina ? Math.round(it.effects.stamina * mult) : 0;
+  if (hpPerUse > 0) lines.push(`HP: ${p.hp} → ${Math.min(p.maxHp, p.hp + (hpPerUse * qty))}`);
+  if (stPerUse > 0) lines.push(`ST: ${p.stamina} → ${Math.min(p.maxStamina, p.stamina + (stPerUse * qty))}`);
+  if (it.effects.sanity)  lines.push(`SN: ${p.sanity} → ${Math.min(p.maxSanity, p.sanity + Math.round(it.effects.sanity*qty))}`);
   document.getElementById('item-effect-preview').textContent = lines.join('  /  ');
 }
 
@@ -151,12 +226,14 @@ function useSelectedItem() {
   const p = G.players[targetIdx];
   if (!p) return;
   if ((it.id === 'bandage' || it.id === 'medKit') && p.hp <= 0) { return; }
-  const mult = p.job === 'medic' ? 1.1 : 1.0;
+  const mult = getItemRecoveryMultiplier();
   const qty = G.itemUseQty;
+  const hpPerUse = it.effects.hp ? Math.round(it.effects.hp * mult) : 0;
+  const stPerUse = it.effects.stamina ? Math.round(it.effects.stamina * mult) : 0;
   for (let q=0; q<qty; q++) {
-    if (it.effects.hp)     p.hp     = Math.min(p.maxHp, p.hp + Math.round(it.effects.hp*mult));
-    if (it.effects.stamina) p.stamina = Math.min(p.maxStamina, p.stamina + Math.round(it.effects.stamina*mult));
-    if (it.effects.sanity)  p.sanity  = Math.min(p.maxSanity, p.sanity + Math.round(it.effects.sanity*mult));
+    if (hpPerUse > 0) p.hp = Math.min(p.maxHp, p.hp + hpPerUse);
+    if (stPerUse > 0) p.stamina = Math.min(p.maxStamina, p.stamina + stPerUse);
+    if (it.effects.sanity)  p.sanity  = Math.min(p.maxSanity, p.sanity + Math.round(it.effects.sanity));
   }
   removeFromBag(slot.id, qty);
   Audio.playSE('item');
@@ -196,6 +273,20 @@ function confirmDiscard() {
   const qty = G.discardQty;
   removeFromBag(slot.id, qty);
   addLog('system', `「${it.name}」×${qty} を捨てた。`);
+  if (G.pendingPickupItem && G.bag.length >= G.bagMax) {
+    addLog('system', 'まだバッグが満杯。取得するにはもう1枠空ける必要がある。');
+    updateBagMini();
+    openBag();
+    return;
+  }
+  if (G.pendingPickupItem && G.bag.length < G.bagMax) {
+    const pending = G.pendingPickupItem;
+    G.pendingPickupItem = null;
+    const pItem = GAME_DATA.items[pending];
+    addToBag(pending, { allowReplacePrompt: false });
+    Audio.playSE('item');
+    addLog('item', `🎁 「${pItem.name}」を取得した。`);
+  }
   updateBagMini();
   closeModal('bag-modal');
 }
@@ -242,7 +333,11 @@ function openEquip() {
 function equipWeapon(pi, wid) {
   const p = G.players[pi];
   if (p.equip.weapon && p.equip.weapon !== wid) {
-    addToBag(p.equip.weapon);
+    const returned = addToBag(p.equip.weapon, { allowReplacePrompt: false });
+    if (!returned) {
+      addLog('danger', 'バッグに空きがないため、武器を外せない。');
+      return;
+    }
     addLog('system', `${p.name}が「${GAME_DATA.items[p.equip.weapon].name}」を外してバッグに戻した。`);
   }
   if (wid) {
@@ -261,7 +356,11 @@ function unequipWeapon(pi) {
   const p = G.players[pi];
   if (!p.equip.weapon) return;
   const wid = p.equip.weapon;
-  addToBag(wid);
+  const returned = addToBag(wid, { allowReplacePrompt: false });
+  if (!returned) {
+    addLog('danger', 'バッグに空きがないため、武器を外せない。');
+    return;
+  }
   addLog('system', `${p.name}が「${GAME_DATA.items[wid].name}」を外してバッグに戻した。`);
   p.equip.weapon = null; p.equip.weaponDurability = 0;
   updateStatusBar(); updateBagMini(); openEquip();

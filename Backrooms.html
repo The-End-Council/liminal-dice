@@ -20,11 +20,12 @@
     </div>
     <nav class="home-menu">
       <button class="menu-btn" onclick="showSetup()"><span class="menu-num">01</span> プレイ</button>
-      <button class="menu-btn" onclick="showModal('changelog-modal')"><span class="menu-num">02</span> 更新ログ</button>
+      <button class="menu-btn" onclick="showModal('changelog-modal')"><span class="menu-num">02</span> パッチノート</button>
       <button class="menu-btn" onclick="showModal('extra-modal')"><span class="menu-num">03</span> エクストラ</button>
       <button class="menu-btn" onclick="showModal('levellist-modal')"><span class="menu-num">04</span> レベルリスト</button>
       <button class="menu-btn" onclick="showModal('trophy-modal')"><span class="menu-num">05</span> トロフィー・バッジ</button>
       <button class="menu-btn" onclick="showModal('saveload-modal')"><span class="menu-num">06</span> セーブ / ロード</button>
+      <button class="menu-btn" onclick="showModal('settings-modal')"><span class="menu-num">07</span> 設定</button>
     </nav>
   </div>
 </div>
@@ -72,16 +73,10 @@
         <button class="action-btn" onclick="openEquip();playSE('click')"><span class="ab-icon">⚔️</span> 装備を確認</button>
         <button class="action-btn" onclick="showModal('saveload-modal');playSE('click')"><span class="ab-icon">💾</span> セーブ / ロード</button>
         <button class="action-btn" onclick="confirmHome();playSE('click')"><span class="ab-icon">🚪</span> ホームへ戻る</button>
-        <div style="display:flex;align-items:center;gap:8px;padding:6px 2px;border-top:1px solid var(--border);margin-top:4px;">
-          <span style="font-family:var(--font-mono);font-size:9px;color:var(--muted);letter-spacing:0.15em;">VOL</span>
-          <input type="range" id="vol-slider" min="0" max="1" step="0.05" value="0.35"
-            style="flex:1;accent-color:var(--yellow);cursor:pointer;"
-            oninput="setMasterVol(this.value)">
-          <button class="action-btn" style="padding:4px 8px;min-width:32px;" onclick="toggleMute()" id="mute-btn">🔊</button>
-        </div>
       </div>
     </div>
     <div class="game-center">
+      <div class="archive-title">アーカイブ</div>
       <div class="game-log" id="game-log"><div class="game-log-inner" id="game-log-inner"></div></div>
       <div class="dice-area">
         <div class="dice-prompt" id="dice-prompt">ターン開始 — 行動を選択してください</div>
@@ -96,8 +91,8 @@
 <!-- MODALS -->
 <div id="changelog-modal" class="overlay-screen">
   <div class="modal-box">
-    <div class="modal-title">SYSTEM LOG</div>
-    <div class="modal-heading">更新ログ</div>
+    <div class="modal-title">PATCH NOTES</div>
+    <div class="modal-heading">パッチノート</div>
     <button class="modal-close" onclick="closeModal('changelog-modal')">CLOSE</button>
     <div id="changelog-content"></div>
   </div>
@@ -167,6 +162,18 @@
     </div>
   </div>
 </div>
+<div id="bagfull-modal" class="overlay-screen">
+  <div class="modal-box" style="max-width:520px;">
+    <div class="modal-title">ITEM CAPACITY</div>
+    <div class="modal-heading">バッグが満杯</div>
+    <button class="modal-close" onclick="cancelBagFullPickup()">CLOSE</button>
+    <div id="bagfull-confirm-text" style="font-size:13px;color:var(--textdim);line-height:1.7;margin-bottom:16px;"></div>
+    <div class="discard-confirm-btns">
+      <button class="discard-confirm-yes" onclick="confirmBagFullPickup()">捨てて取得する</button>
+      <button class="discard-confirm-no" onclick="cancelBagFullPickup()">取得しない</button>
+    </div>
+  </div>
+</div>
 <div id="equip-modal" class="overlay-screen">
   <div class="modal-box">
     <div class="modal-title">LOADOUT</div>
@@ -183,10 +190,31 @@
     <div id="saveload-content"></div>
   </div>
 </div>
+<div id="settings-modal" class="overlay-screen">
+  <div class="modal-box">
+    <div class="modal-title">AUDIO CONTROL</div>
+    <div class="modal-heading">設定</div>
+    <button class="modal-close" onclick="closeModal('settings-modal')">CLOSE</button>
+    <div class="audio-control-panel" style="margin-top:0;border-top:none;padding:0;">
+      <div class="audio-control-row">
+        <span class="audio-control-label">BGM</span>
+        <input type="range" id="bgm-vol-slider" min="0" max="1" step="0.05" value="0.35"
+          class="audio-control-slider" oninput="setBgmVol(this.value)">
+        <button class="action-btn audio-control-mute" onclick="toggleBgmMute()" id="bgm-mute-btn">🔊</button>
+      </div>
+      <div class="audio-control-row">
+        <span class="audio-control-label">SE</span>
+        <input type="range" id="se-vol-slider" min="0" max="1" step="0.05" value="0.35"
+          class="audio-control-slider" oninput="setSeVol(this.value)">
+        <button class="action-btn audio-control-mute" onclick="toggleSeMute()" id="se-mute-btn">🔔</button>
+      </div>
+    </div>
+  </div>
+</div>
 <div id="turnmode-modal" class="overlay-screen">
   <div class="turn-mode-box">
     <div class="tm-heading">ターン行動方式</div>
-    <div class="tm-desc" id="turn-mode-desc">今ターンの行動方式を選んでください。</div>
+    <div class="tm-desc" id="turn-mode-desc">今ターンの行動方式を選択してください。</div>
     <div class="tm-btns">
       <button class="tm-btn" onclick="selectTurnMode('individual')">個別行動<br><span style="font-size:11px;color:var(--muted)">スタミナ-10 / 各自ダイス</span></button>
       <button class="tm-btn primary" onclick="selectTurnMode('group')">団体行動<br><span style="font-size:11px;color:var(--bg)">スタミナ-5 / 共通ダイス</span></button>
@@ -199,7 +227,7 @@
     <div class="stamina-desc" id="stamina-modal-desc">スタミナが0のプレイヤーがいます。アイテムで回復しますか？</div>
     <div id="stamina-modal-players"></div>
     <div class="stamina-footer">
-      <button class="stamina-skip-btn" onclick="skipStaminaRecovery()">スキップ（行動不能のまま）</button>
+      <button class="stamina-skip-btn" onclick="skipStaminaRecovery()">確定して続行</button>
     </div>
   </div>
 </div>
@@ -207,6 +235,9 @@
   <div class="combat-frame">
     <div style="margin-bottom:16px;">
       <div class="entity-name" id="combat-entity-name">Howler</div>
+      <div class="entity-art-wrap" id="combat-entity-image-wrap">
+        <img class="entity-art" id="combat-entity-image" alt="Entity">
+      </div>
       <div style="font-size:12px;color:var(--muted);margin-top:4px;" id="combat-entity-desc"></div>
       <div class="entity-hp-bar" style="margin-top:8px;">
         <div class="entity-hp-fill" id="combat-hp-bar" style="width:100%"></div>

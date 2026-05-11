@@ -1,108 +1,73 @@
 # Backrooms Roguelike Escape
 
-Backroomsを題材にした、ローグライク型の脱出ゲームです。  
-プレイヤーは職業を選び、ダイスによって探索、アイテム取得、エンティティ遭遇、階層移動などを行いながら脱出を目指します。
+Backrooms Roguelike Escape is a browser-based roguelike escape game inspired by Backrooms.  
+Players choose jobs, roll dice, explore levels, manage items, fight entities, and aim to escape.
 
-## 概要
+## Quick Start
 
-このゲームは、Backroomsの階層探索をベースにしたブラウザゲームです。  
-プレイヤーは体力、スタミナ、精神力を管理しながら、ランダムダイスによって行動します。
+No build step is required.  
+Open `Backrooms.html` in your browser.
 
-## 主な特徴
+## Current Scope
 
-| 要素 | 内容 |
-| --- | --- |
-| ジャンル | ローグライク脱出ゲーム |
-| 操作 | ブラウザ上で操作 |
-| 行動方式 | ダイスによるランダムイベント |
-| プレイヤー人数 | 1人から4人 |
-| ステータス | 体力、スタミナ、精神力 |
-| 職業 | 放浪者、階層調査員、ハンター、釣り人、救護員 |
-| 階層 | Level 0、Level 1など |
-| 戦闘 | エンティティとの遭遇、攻撃、逃走 |
-| アイテム | 食料、医療品、武器、道具、職業専用アイテム |
-| セーブ | localStorageによるセーブ、ロード |
+| Item | Status |
+|---|---|
+| Levels | Level 0, Level 1 |
+| Jobs | Wanderer, Investigator, Hunter, Fisherman, Medic |
+| Entities | Howler, Duller |
+| Core Systems | Dice, Turn Flow, Combat, Inventory, Equip, Save/Load |
+| Audio | BGM / SE, Volume, Mute |
+| Log | In-game Archive with auto-scroll |
 
-## 現在実装されている内容
+## Image Asset Integration
 
-| 種類 | 実装内容 |
-| --- | --- |
-| Level | Level 0、Level 1 |
-| 職業 | 放浪者、階層調査員、ハンター、釣り人、救護員 |
-| エンティティ | Howler、Duller |
-| アイテム | アーモンドウォーター、乾パン、包帯、医療キット、ハンドガン、ナイフなど |
-| システム | ダイス、ターン、戦闘、バッグ、装備、セーブ、ロード、トロフィー |
-| 演出 | BGM、SE、ゲームオーバー演出 |
+| Category | Path | In-game Usage |
+|---|---|---|
+| Jobs | `img/Jobs/*.png` | Setup job cards, job pick buttons, status bar job icon |
+| Items | `img/Items/**.png` | Bag mini slots, bag modal cards, item detail panel |
+| Entities | `img/Entities/*.png` | Combat encounter panel |
 
-## ディレクトリ構造
+## Directory Overview
 
 ```text
 /
 ├── README.md
+├── AGENTS.md
 ├── Backrooms.html
 ├── game-data.js
-├── css/
-│   └── style.css
-└── js/
-    ├── audio.js
-    ├── state.js
-    ├── screen.js
-    ├── setup.js
-    ├── ui.js
-    ├── turn.js
-    ├── combat.js
-    ├── inventory.js
-    ├── save-load.js
-    ├── trophies.js
-    └── main.js
+├── css/style.css
+├── js/
+├── docs/
+├── img/
+│   ├── Jobs/
+│   ├── Items/
+│   ├── Entities/
+│   └── Levels/
+└── .github/
+    └── ISSUE_TEMPLATE/
 ```
 
-## ファイル説明
+## Issue Templates
 
-| ファイル | 内容 |
-| --- | --- |
-| Backrooms.html | ゲーム画面のHTML構造 |
-| game-data.js | 職業、アイテム、エンティティ、階層、トロフィー、更新ログのデータ |
-| css/style.css | ゲーム全体のスタイル |
-| js/audio.js | 音声処理 |
-| js/state.js | ゲーム状態管理 |
-| js/screen.js | 画面切り替え |
-| js/setup.js | ゲーム開始前設定 |
-| js/ui.js | UI更新 |
-| js/turn.js | ターンとダイス処理 |
-| js/combat.js | 戦闘処理 |
-| js/inventory.js | バッグ、アイテム、装備処理 |
-| js/save-load.js | セーブ、ロード処理 |
-| js/trophies.js | トロフィー処理 |
-| js/main.js | 初期化処理 |
+| File | Purpose |
+|---|---|
+| `.github/ISSUE_TEMPLATE/config.yml` | Issue template config and contact links |
+| `.github/ISSUE_TEMPLATE/bug_report.yml` | Bug report form |
+| `.github/ISSUE_TEMPLATE/feature_request.yml` | Feature request form |
+| `.github/ISSUE_TEMPLATE/balance_feedback.yml` | Game balance feedback form |
 
-## 起動方法
+## Issue and SubIssue Board
 
-このゲームはビルド不要です。  
-`Backrooms.html` をブラウザで開くと起動できます。
+See the full board in [docs/IssueBoard.md](docs/IssueBoard.md).
 
-## 開発ルール
+| Status | Scope |
+|---|---|
+| To do | New feature backlog (levels, entities, items, endings, fishing) |
+| Pending | QA and workflow checks |
+| In progress | Image integration and issue template setup |
+| Done | Core systems and fixes from v0.1.0 to v0.1.4 |
 
-| ルール | 内容 |
-| --- | --- |
-| CSS | `css/style.css` に記述する |
-| JavaScript | `js/` 配下に役割別で記述する |
-| ゲームデータ | `game-data.js` に記述する |
-| 表示文 | 日本語を基本とする |
-| 新機能追加 | 既存機能を壊さないように段階的に行う |
-| ゲームバランス | 変更する場合は更新ログに記録する |
+## Notes
 
-## 今後の予定
-
-| 項目 | 内容 |
-| --- | --- |
-| Level追加 | Backroomsの階層を追加 |
-| アイテム追加 | 食料、異常アイテム、釣りアイテムなど |
-| エンティティ追加 | 階層ごとのエンティティを追加 |
-| 釣りシステム | 水辺エリアで釣りを実装 |
-| 実績追加 | 条件達成による実績を追加 |
-| ドキュメント整備 | ゲーム設計資料を追加 |
-
-## ライセンス
-
-未定。
+- Issue and SubIssue titles use simple English.
+- Detailed design and system notes are in `docs/`.

@@ -2,6 +2,19 @@ function startCombat(entityData) {
   G.entityState = { entity:{ ...entityData }, hp:entityData.hp, maxHp:entityData.maxHp };
   document.getElementById('combat-entity-name').textContent = entityData.name;
   document.getElementById('combat-entity-name').style.color = entityData.color;
+  const entityImg = document.getElementById('combat-entity-image');
+  const entityImgWrap = document.getElementById('combat-entity-image-wrap');
+  if (entityImg && entityImgWrap) {
+    if (entityData.image) {
+      entityImg.src = entityData.image;
+      entityImg.alt = entityData.name;
+      entityImgWrap.style.display = 'flex';
+    } else {
+      entityImg.removeAttribute('src');
+      entityImg.alt = '';
+      entityImgWrap.style.display = 'none';
+    }
+  }
   document.getElementById('combat-entity-desc').textContent = entityData.desc;
   document.getElementById('combat-hp-val').textContent = entityData.hp;
   document.getElementById('combat-hp-max').textContent = entityData.maxHp;
@@ -20,10 +33,86 @@ function resetCombatBtns() {
 
 function calcPlayerAttack(p) {
   let atk = p.attack;
-  if (p.job === 'hunter') atk += 1;
   const wid = p.equip.weapon;
   if (wid) { const w=GAME_DATA.items[wid]; if(w&&w.attack) atk += w.attack; }
+  if (p.job === 'hunter') atk = Math.round(atk * 1.10);
   return atk;
+}
+
+function shuffleArray(arr) {
+  for (let i = arr.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [arr[i], arr[j]] = [arr[j], arr[i]];
+  }
+  return arr;
+}
+
+function normalizeFaceCounts(sides, a, b, fallbackA, fallbackB) {
+  let aa = Number.isFinite(a) ? Math.max(0, Math.floor(a)) : fallbackA;
+  let bb = Number.isFinite(b) ? Math.max(0, Math.floor(b)) : fallbackB;
+  if (aa + bb !== sides) {
+    aa = fallbackA;
+    bb = fallbackB;
+  }
+  if (aa <= 0) { aa = sides - 1; bb = 1; }
+  if (bb <= 0) { bb = sides - 1; aa = 1; }
+  return { a: aa, b: bb };
+}
+
+function buildRandomFaceMap(sides, entries) {
+  const faces = shuffleArray(Array.from({ length: sides }, (_, i) => i + 1));
+  const map = {};
+  let ptr = 0;
+  entries.forEach(entry => {
+    for (let i = 0; i < entry.count && ptr < faces.length; i++, ptr++) {
+      map[faces[ptr]] = entry.type;
+    }
+  });
+  while (ptr < faces.length) {
+    map[faces[ptr]] = entries[entries.length - 1].type;
+    ptr++;
+  }
+  return map;
+}
+
+function buildEntityAttackDice(entity) {
+  const raw = (entity && entity.attackDice) ? entity.attackDice : {};
+  const sides = Number.isFinite(raw.sides) ? Math.max(2, Math.floor(raw.sides)) : 6;
+  const c = normalizeFaceCounts(sides, raw.attackFaces, raw.dodgeFaces, 4, 2);
+  return {
+    sides,
+    faceMap: buildRandomFaceMap(sides, [
+      { type: 'attack', count: c.a },
+      { type: 'dodge', count: c.b }
+    ])
+  };
+}
+
+function buildEntityFleeDice(entity) {
+  const raw = (entity && entity.fleeDice) ? entity.fleeDice : {};
+  const sides = Number.isFinite(raw.sides) ? Math.max(2, Math.floor(raw.sides)) : 6;
+  const c = normalizeFaceCounts(sides, raw.escapeFaces, raw.failFaces, 4, 2);
+  return {
+    sides,
+    faceMap: buildRandomFaceMap(sides, [
+      { type: 'escape', count: c.a },
+      { type: 'fail', count: c.b }
+    ])
+  };
+}
+
+function rollEntityAttackDice() {
+  const cs = G.entityState;
+  if (!cs) return;
+  const dice = buildEntityAttackDice(cs.entity);
+  animateCombatDice(dice.sides, r => entityAttack(r, dice.faceMap[r]));
+}
+
+function rollEntityFleeDice() {
+  const cs = G.entityState;
+  if (!cs) return;
+  const dice = buildEntityFleeDice(cs.entity);
+  animateCombatDice(dice.sides, r => fleeAttempt(r, dice.faceMap[r]));
 }
 
 function combatAction(action) {
@@ -79,35 +168,39 @@ function combatAction(action) {
       setTimeout(() => { closeCombat(); afterCombatEnd(); }, 1200);
       return;
     }
-    setTimeout(() => animateCombatDice(r => entityAttack(r)), 600);
+    setTimeout(() => rollEntityAttackDice(), 600);
 
   } else if (action === 'flee') {
-    animateCombatDice(r => fleeAttempt(r));
+    rollEntityFleeDice();
   }
 }
 
-function animateCombatDice(callback) {
+function animateCombatDice(sides, callback) {
+  const faceMax = Number.isFinite(sides) ? Math.max(2, Math.floor(sides)) : 6;
   const wrap = document.getElementById('combat-dice-display');
-  wrap.innerHTML = `<div><div class="combat-dice-face rolling" id="combat-dice-face">?</div><div class="combat-dice-label">D6</div></div>`;
+  wrap.innerHTML = `<div><div class="combat-dice-face rolling" id="combat-dice-face">?</div><div class="combat-dice-label">D${faceMax}</div></div>`;
   const face = document.getElementById('combat-dice-face');
   let t = 0;
   const iv = setInterval(() => {
-    face.textContent = Math.ceil(Math.random()*6);
+    face.textContent = Math.ceil(Math.random() * faceMax);
     if (++t > 10) {
       clearInterval(iv);
       face.classList.remove('rolling');
-      const r = Math.ceil(Math.random()*6);
+      const r = Math.ceil(Math.random() * faceMax);
       face.textContent = r;
       setTimeout(() => callback(r), 200);
     }
   }, 55);
 }
 
-function entityAttack(r) {
+function entityAttack(r, outcome) {
   const cs = G.entityState;
-  const dodge = (r === 6);
+  const dodge = outcome === 'dodge';
   const face = document.getElementById('combat-dice-face');
-  if (face) face.textContent = r;
+  if (face) {
+    face.textContent = r;
+    face.style.color = dodge ? '#80c080' : '#e08080';
+  }
 
   if (dodge) {
     setCombatLog(`エンティティの攻撃！ ダイス:${r} → 回避成功！`);
@@ -150,10 +243,13 @@ function checkCombatEndCondition() {
   return G.players.every(p => p.hp <= 0);
 }
 
-function fleeAttempt(r) {
+function fleeAttempt(r, outcome) {
   const face = document.getElementById('combat-dice-face');
-  if (face) face.textContent = r;
-  const success = r >= 2;
+  const success = outcome === 'escape';
+  if (face) {
+    face.textContent = r;
+    face.style.color = success ? '#80c080' : '#e08080';
+  }
 
   // Fix: only apply stamina cost to the relevant player(s)
   Audio.playSE('flee');
@@ -173,7 +269,7 @@ function fleeAttempt(r) {
     setCombatLog(`逃走失敗！ ダイス:${r} → スタミナ-10`);
     addLog('danger', '逃走失敗！スタミナを10消費した。');
     updateStatusBar();
-    setTimeout(() => animateCombatDice(r2 => entityAttack(r2)), 800);
+    setTimeout(() => rollEntityAttackDice(), 800);
   }
 }
 
@@ -185,7 +281,17 @@ function updateCombatHP() {
 }
 function closeCombat() {
   document.getElementById('combat-overlay').classList.remove('active');
+  const entityImg = document.getElementById('combat-entity-image');
+  if (entityImg) {
+    entityImg.removeAttribute('src');
+    entityImg.alt = '';
+  }
   G.entityState = null;
+  if (typeof scrollArchiveToBottom === 'function') {
+    scrollArchiveToBottom();
+    setTimeout(() => scrollArchiveToBottom(), 0);
+    setTimeout(() => scrollArchiveToBottom(), 120);
+  }
 }
 function afterCombatEnd() {
   if (G.turnMode === 'individual') {
@@ -195,13 +301,17 @@ function afterCombatEnd() {
       const job = GAME_DATA.jobs[p.job];
       if (job.passive) {
         const r = job.passive(G, p);
-        if (r && r.type === 'ADD_ITEM') { addToBag(r.item); addLog('item', `✨ ${r.msg}`); updateBagMini(); }
+        if (r && r.type === 'ADD_ITEM') {
+          const added = addToBag(r.item);
+          if (added) addLog('item', `✨ ${r.msg}`);
+          updateBagMini();
+        }
       }
     }
     G.currentPlayerIdx++;
     beginNextPlayerRoll();
   } else {
-    triggerGroupPassives(() => { advanceTime(); endTurn(); });
+    triggerGroupPassives(() => { endTurn(); });
   }
 }
 
