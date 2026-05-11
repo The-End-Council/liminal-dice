@@ -13,7 +13,7 @@ body:
     attributes:
       label: Problem
       description: What problem do you want to solve?
-      placeholder: Example: Hard to compare items in bag quickly.
+      placeholder: "Example: Hard to compare items in bag quickly."
     validations:
       required: true
 
@@ -22,7 +22,7 @@ body:
     attributes:
       label: Proposed Solution
       description: What feature do you want?
-      placeholder: Example: Add compact compare panel for selected item.
+      placeholder: "Example: Add compact compare panel for selected item."
     validations:
       required: true
 
@@ -56,7 +56,7 @@ body:
     attributes:
       label: Expected Impact
       description: How this helps gameplay.
-      placeholder: Example: Faster decisions, less UI friction.
+      placeholder: "Example: Faster decisions, less UI friction."
     validations:
       required: false
 
