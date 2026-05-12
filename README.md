@@ -62,10 +62,21 @@ See the full board in [docs/IssueBoard.md](docs/IssueBoard.md).
 
 | Status | Scope |
 |---|---|
-| To do | New feature backlog (levels, entities, items, endings, fishing) |
-| Pending | QA and workflow checks |
-| In progress | Image integration and issue template setup |
-| Done | Core systems and fixes from v0.1.0 to v0.1.4 |
+| To do | Parent issues and sub-issues for levels, entities, items, achievements, fishing, and endings |
+
+## License
+
+This project is distributed under **Creative Commons Attribution-ShareAlike 3.0 (CC BY-SA 3.0)**.
+
+Backrooms-related concepts and derivative content are based on:
+- [The Backrooms Wiki](http://backrooms-wiki.wikidot.com/)
+
+Canonical license page:
+- [CC BY-SA 3.0](https://creativecommons.org/licenses/by-sa/3.0/)
+- [CC BY-SA 3.0 Legal Code](https://creativecommons.org/licenses/by-sa/3.0/legalcode.en)
+
+Attribution statement:
+- Content relating to the Backrooms is licensed under Creative Commons ShareAlike 3.0 and all concepts originate from http://backrooms-wiki.wikidot.com/ and its authors. This project, being derived from this content, is hereby also released under Creative Commons ShareAlike 3.0.
 
 ## Notes
 
