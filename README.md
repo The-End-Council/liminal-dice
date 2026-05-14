@@ -37,7 +37,6 @@ Open `Backrooms.html` in your browser.
 ├── game-data.js
 ├── css/style.css
 ├── js/
-├── docs/
 ├── img/
 │   ├── Jobs/
 │   ├── Items/
@@ -58,7 +57,7 @@ Open `Backrooms.html` in your browser.
 
 ## Issue and SubIssue Board
 
-See the full board in [docs/IssueBoard.md](docs/IssueBoard.md).
+Issue and SubIssue tracking is managed in GitHub Project: **Liminal-dice**.
 
 | Status | Scope |
 |---|---|
@@ -81,4 +80,4 @@ Attribution statement:
 ## Notes
 
 - Issue and SubIssue titles use simple English.
-- Detailed design and system notes are in `docs/`.
+- Local design notes can be maintained in `docs/` as an untracked local workspace.
