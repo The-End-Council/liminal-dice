@@ -6,7 +6,7 @@ Players choose jobs, roll dice, explore levels, manage items, fight entities, an
 ## Quick Start
 
 No build step is required.  
-Open `Backrooms.html` in your browser.
+Open `liminal-dice.html` in your browser.
 
 ## Current Scope
 
@@ -31,17 +31,30 @@ Open `Backrooms.html` in your browser.
 
 ```text
 /
-├── README.md
 ├── AGENTS.md
-├── Backrooms.html
+├── README.md
+├── liminal-dice.html
 ├── game-data.js
-├── css/style.css
-├── js/
+├── src/
+│   ├── style.css
+│   ├── audio.js
+│   ├── state.js
+│   ├── screen.js
+│   ├── setup.js
+│   ├── ui.js
+│   ├── turn.js
+│   ├── combat.js
+│   ├── inventory.js
+│   ├── save-load.js
+│   ├── trophies.js
+│   └── main.js
+├── docs/
 ├── img/
 │   ├── Jobs/
 │   ├── Items/
 │   ├── Entities/
 │   └── Levels/
+├── audio/
 └── .github/
     └── ISSUE_TEMPLATE/
 ```
